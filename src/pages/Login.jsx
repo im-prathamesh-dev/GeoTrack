@@ -34,7 +34,7 @@ export default function Login() {
   }, [location.search, checkAuth, navigate, isAuthenticated]);
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:5000/api/v1/auth/google';
+    window.location.href = 'https://geotrackbackend.onrender.com/api/v1/auth/google';
   };
 
   return (

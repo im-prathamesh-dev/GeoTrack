@@ -78,7 +78,7 @@ export default function Activity() {
 
   // Setup Socket.IO for live multiplayer tracking
   useEffect(() => {
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io('https://geotrackbackend.onrender.com');
     
     socketRef.current.on('locationUpdate', (data) => {
       // Don't render ourselves as an "other" player
