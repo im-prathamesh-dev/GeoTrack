@@ -265,17 +265,20 @@ export default function Activity() {
       if (activityId) {
         await api.post('/activity/end', { activityId });
       }
-      
+    } catch (err) {
+      console.error("Failed to stop activity on backend", err);
+    } finally {
+      // ALWAYS clear local state regardless of backend success
+      // Otherwise the app gets permanently stuck in "Tracking" mode
       setActivityId(null);
       setRoute([]);
       setStartTime(null);
       setElapsed(0);
+      setIsTracking(false);
       
       localStorage.removeItem('activeActivityId');
       localStorage.removeItem('activeRoute');
       localStorage.removeItem('activeActivityStartTime');
-    } catch (err) {
-      console.error("Failed to stop activity", err);
     }
   };
 
