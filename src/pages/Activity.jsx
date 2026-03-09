@@ -77,6 +77,11 @@ export default function Activity() {
   });
   const [isTracking, setIsTracking] = useState(() => !!localStorage.getItem('activeActivityId'));
   const [activityId, setActivityId] = useState(() => localStorage.getItem('activeActivityId') || null);
+  const [startTime, setStartTime] = useState(() => {
+    const saved = localStorage.getItem('activeActivityStartTime');
+    return saved ? parseInt(saved, 10) : null;
+  });
+  const [elapsed, setElapsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const watchIdRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
@@ -84,6 +89,21 @@ export default function Activity() {
   const [otherUsers, setOtherUsers] = useState({});
   const [territories, setTerritories] = useState([]);
   const socketRef = useRef(null);
+
+  // Setup Socket.IO for live multiplayer tracking
+  useEffect(() => {
+    let interval;
+    if (isTracking && startTime) {
+      // Calculate initial elapsed time
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+      interval = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    } else {
+      setElapsed(0);
+    }
+    return () => clearInterval(interval);
+  }, [isTracking, startTime]);
 
   const fetchTerritories = async () => {
     try {
@@ -223,6 +243,10 @@ export default function Activity() {
       setActivityId(newId);
       localStorage.setItem('activeActivityId', newId);
       
+      const now = Date.now();
+      setStartTime(now);
+      localStorage.setItem('activeActivityStartTime', now.toString());
+      
       const initialRoute = [position];
       setRoute(initialRoute);
       localStorage.setItem('activeRoute', JSON.stringify(initialRoute));
@@ -244,9 +268,12 @@ export default function Activity() {
       
       setActivityId(null);
       setRoute([]);
+      setStartTime(null);
+      setElapsed(0);
       
       localStorage.removeItem('activeActivityId');
       localStorage.removeItem('activeRoute');
+      localStorage.removeItem('activeActivityStartTime');
     } catch (err) {
       console.error("Failed to stop activity", err);
     }
@@ -256,6 +283,14 @@ export default function Activity() {
     if (mapInstance && position) {
       mapInstance.flyTo(position, 16, { duration: 1.5 });
     }
+  };
+
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -363,8 +398,8 @@ export default function Activity() {
                   <div className="w-[1px] h-10 bg-white/10"></div>
                   <div className="text-center">
                     <p className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1">Time</p>
-                    <p className="text-2xl font-bold text-white tracking-tighter">
-                      --:--
+                    <p className="text-2xl font-bold text-white tracking-tighter w-20">
+                      {formatTime(elapsed)}
                     </p>
                   </div>
                 </motion.div>
