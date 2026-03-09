@@ -34,6 +34,29 @@ const otherPlayerIcon = (profilePic, color) => new L.DivIcon({
   iconAnchor: [16, 16],
 });
 
+// Calculate distance between two points in km (Haversine formula)
+function getDistanceInKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  return R * c; 
+}
+
+// Calculate total route distance
+function calculateTotalDistance(routeArray) {
+  if (!routeArray || routeArray.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < routeArray.length; i++) {
+    total += getDistanceInKm(routeArray[i-1][0], routeArray[i-1][1], routeArray[i][0], routeArray[i][1]);
+  }
+  return total;
+}
+
 // Component to recenter map when location changes
 function MapRecenter({ position, tracking }) {
   const map = useMap();
@@ -152,17 +175,27 @@ export default function Activity() {
             setPosition(newPos);
             
             setRoute((prev) => {
+              // If we have a previous point, check distance to filter GPS drift/jitter
+              if (prev.length > 0) {
+                const lastPos = prev[prev.length - 1];
+                const distance = getDistanceInKm(lastPos[0], lastPos[1], latitude, longitude);
+                
+                // Only register movement if moved more than 3 meters (0.003 km) to avoid jitter
+                if (distance < 0.003) {
+                  return prev; 
+                }
+              }
+
               const newRoute = [...prev, newPos];
               localStorage.setItem('activeRoute', JSON.stringify(newRoute));
+              
+              // Sync with backend asynchronously
+              api.post('/activity/location', { activityId, lat: latitude, lng: longitude }).catch(err => 
+                console.error("Failed to sync location", err)
+              );
+
               return newRoute;
             });
-
-            // Sync with backend
-            try {
-              await api.post('/activity/location', { activityId, lat: latitude, lng: longitude });
-            } catch (err) {
-              console.error("Failed to sync location", err);
-            }
           },
           (err) => console.error("Error watching location:", err),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
@@ -324,7 +357,7 @@ export default function Activity() {
                   <div className="text-center">
                     <p className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1">Distance</p>
                     <p className="text-2xl font-bold text-white tracking-tighter">
-                      {(route.length * 0.015).toFixed(2)} <span className="text-sm font-medium text-neutral-500">km</span>
+                      {calculateTotalDistance(route).toFixed(2)} <span className="text-sm font-medium text-neutral-500">km</span>
                     </p>
                   </div>
                   <div className="w-[1px] h-10 bg-white/10"></div>
